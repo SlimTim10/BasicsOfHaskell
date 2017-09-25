@@ -1,39 +1,36 @@
 import Control.Applicative
 import Control.Monad (liftM, ap)
 
-data WhyNot a = Nah | Sure a
-  deriving Show
-
-instance Functor WhyNot where
+instance Functor Trace where
   fmap = liftM
-instance Applicative WhyNot where
+instance Applicative Trace where
   pure = return
   (<*>) = ap
 
-instance Monad WhyNot where
-   x >>= k =
-     case x of
-       (Sure x') -> k x'
-       Nah -> Nah
-   return x = Sure x
-   fail x = Nah
+newtype Trace a = Trace ([String], a)
+  deriving Show
 
-safeRoot :: Double -> WhyNot Double
-safeRoot x = 
-    if x >= 0 then 
-      return (sqrt x)
-    else
-      fail "Boo!"
+instance Monad Trace where
+  (Trace (lst, x)) >>= k =
+    let
+      Trace (lst', x') = k x
+    in
+      Trace (lst ++ lst', x')
+  return x = Trace ([], x)
 
-test :: Double -> WhyNot Double
-test x = do
-   y <- safeRoot x
-   z <- safeRoot (y - 4)
-   w <- safeRoot z
-   return w
+put :: Show a => String -> a -> Trace ()
+put msg v = Trace ([msg ++ " " ++ show v], ())
 
+fact :: Integer -> Trace Integer
+fact n = do
+   put "fact" n
+   if n == 0
+       then return 1
+       else do
+           m <- fact (n - 1)
+           return (n * m)
 
-main = do
-    print $ test 9
-    print $ test 400
-
+main = let Trace (lst, m) = fact 3
+       in do
+           print lst
+           print m
