@@ -1,35 +1,39 @@
-newtype Reader e a = Reader (e -> a)
+import Control.Applicative
+import Control.Monad (liftM, ap)
 
-reader :: (e -> a) -> Reader e a
-reader f = Reader f
+data WhyNot a = Nah | Sure a
+  deriving Show
 
-runReader :: Reader e a -> e -> a
-runReader (Reader act) env = act env
+instance Functor WhyNot where
+  fmap = liftM
+instance Applicative WhyNot where
+  pure = return
+  (<*>) = ap
 
-ask :: Reader e e
-ask = reader (\e -> e)
+instance Monad WhyNot where
+   x >>= k =
+     case x of
+       (Sure x') -> k x'
+       Nah -> Nah
+   return x = Sure x
+   fail x = Nah
 
-instance Functor (Reader e) where
-  fmap _ _ =  undefined
-instance Applicative (Reader e) where
-  pure _ = undefined
-  _ <*> _ = undefined
-instance Monad (Reader e) where
-  -- (>>=) :: Monad m => m a -> (a -> m b) -> m b
-  -- m <==> Reader e
-  -- act :: m a <==> Reader e a
-  -- k :: a ->  m b <==> a -> Reader e b
-  rd >>= k = reader $ \env ->
-    let
-      x = runReader rd env
-      act' = k x
-    in
-      runReader act' env
-  return x = reader (\_ -> x)
+safeRoot :: Double -> WhyNot Double
+safeRoot x = 
+    if x >= 0 then 
+      return (sqrt x)
+    else
+      fail "Boo!"
 
-test :: Reader String Int
-test = do
-  s <- ask
-  return $ read s + 1
+test :: Double -> WhyNot Double
+test x = do
+   y <- safeRoot x
+   z <- safeRoot (y - 4)
+   w <- safeRoot z
+   return w
 
-main = print $ runReader test "13"
+
+main = do
+    print $ test 9
+    print $ test 400
+
